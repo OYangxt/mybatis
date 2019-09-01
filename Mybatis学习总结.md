@@ -368,39 +368,7 @@ public interface UserDao {
 }
 ```
 
-### 3.3.3 创建daoImpl实现类(UserDaoImpl)
-
-```java
-package com.test.mybatis.dao.impl;
-import com.test.mybatis.dao.UserDao;
-import com.test.mybatis.domain.User;
-import org.apache.ibatis.session.SqlSession;
-import java.util.List;
-/** 
- * @author 20190712713
- * @date 2019/8/29 8:59 
- */
-public class UserDaoImpl implements UserDao {
-    private SqlSession sqlSession;
-    public UserDaoImpl(SqlSession sqlSession) {
-        this.sqlSession = sqlSession; 
-    }   
-    public User queryUserById(String id) {
-        return sqlSession.selectOne("UserDao.queryUserById",id);
-    } 
-    public List<User> queryUserAll() {
-        return sqlSession.selectList("UserDao.queryUserAll");
-    }   
-    public void insertUser(User user) {        			        sqlSession.insert("UserDao.insertUser",user);
-    }    
-    public void updateUser(User user) {        sqlSession.update("UserDao.updateUser",user);    
-   }    
-    public void deleteUser(String id) {        sqlSession.delete("UserDao.deleteUser",id);   
-    }
-}
-```
-
-### 3.3.4 创建映射文件（UserDaoMapper.xml）
+### 3.3.3 创建映射文件（UserDaoMapper.xml）
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -471,6 +439,41 @@ public class UserDaoImpl implements UserDao {
     </delete></mapper>
 ```
 
+### 3.3.4 创建daoImpl实现类(UserDaoImpl)
+
+```java
+package com.test.mybatis.dao.impl;
+import com.test.mybatis.dao.UserDao;
+import com.test.mybatis.domain.User;
+import org.apache.ibatis.session.SqlSession;
+import java.util.List;
+/**
+ * @author 20190712713
+ * @date 2019/8/29 8:59
+ */
+public class UserDaoImpl implements UserDao {
+    private SqlSession sqlSession;
+    public UserDaoImpl(SqlSession sqlSession) {
+        this.sqlSession = sqlSession;
+    }
+    public User queryUserById(String id) {
+        return sqlSession.selectOne("UserDao.queryUserById",id);
+    }
+    public List<User> queryUserAll() {
+        return sqlSession.selectList("UserDao.queryUserAll");
+    }
+    public void insertUser(User user) {
+        sqlSession.insert("UserDao.insertUser",user);
+    }
+    public void updateUser(User user) { 
+        sqlSession.update("UserDao.updateUser",user);
+    }
+    public void deleteUser(String id) {
+        sqlSession.delete("UserDao.deleteUser",id);
+    }
+}
+```
+
 ### 3.3.5 创建测试类（UserDaoTest.java）
 
 ``` java
@@ -492,7 +495,9 @@ public class UserDaoTest {
     @Before 
     public void setUp() throws Exception {
         String resource = "mybatis-config.xml"; 
-        InputStream inputStream = Resources.getResourceAsStream(resource);        SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);        sqlSession = sqlSessionFactory.openSession();
+        InputStream inputStream = Resources.getResourceAsStream(resource);
+        SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream); 
+        sqlSession = sqlSessionFactory.openSession();
         userDao = new UserDaoImpl(sqlSession);
     } 
     
@@ -692,7 +697,8 @@ public class UserMapperTest {
         String resource = "mybatis-config.xml"; 
         InputStream inputStream = Resources.getResourceAsStream(resource);
         //创建SqlSessionFactory工厂
-        SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
+        SqlSessionFactory sqlSessionFactory = new 
+            SqlSessionFactoryBuilder().build(inputStream);
         //打开SqlSession 
         SqlSession sqlSession = sqlSessionFactory.openSession();
         userMapper = sqlSession.getMapper(UserMapper.class);
@@ -705,7 +711,8 @@ public class UserMapperTest {
         }
     } 
     @Test
-    public void testQueryUserById() {             System.out.println(this.userMapper.queryUserById(1l));
+    public void testQueryUserById() {
+        System.out.println(this.userMapper.queryUserById(1l));
     }
     @Test
     public void testQueryUserAll() {
@@ -746,7 +753,184 @@ public class UserMapperTest {
 
 # 5 Spring整合mybatis
 
+## 5.1 引入相关依赖（pom.xml）
 
+```xml
+<dependency>
+    <groupId>c3p0</groupId>
+    <artifactId>c3p0</artifactId>
+    <version>0.9.1.2</version>
+</dependency>
+<dependency>
+    <groupId>org.mybatis</groupId>
+    <artifactId>mybatis-spring</artifactId>
+    <version>1.2.2</version>
+</dependency>
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-jdbc</artifactId>
+    <version>4.1.3.RELEASE</version>
+</dependency>
+<!--spring集成Junit测试-->
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-test</artifactId>
+    <version>4.1.3.RELEASE</version>
+    <scope>test</scope>
+</dependency>
+<!--spring容器-->
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-context</artifactId>
+    <version>4.1.3.RELEASE</version>
+</dependency>
+```
+
+## 5.2 创建Spring配置文件
+
+### 5.2.1 jdbc.propertis
+
+```properties
+jdbc.driver=com.mysql.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/mybatisdemo?useUnicode=true&characterEncoding=gbk
+jdbc.username=root
+jdbc.password=
+```
+
+### 5.2.2 applicationContext-dao.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?><beans xmlns="http://www.springframework.org/schema/beans"       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"       xmlns:context="http://www.springframework.org/schema/context"       xsi:schemaLocation="http://www.springframework.org/schema/beans       http://www.springframework.org/schema/beans/spring-beans.xsd       http://www.springframework.org/schema/context       http://www.springframework.org/schema/context/spring-context.xsd">
+    <!-- 配置整合mybatis过程 -->
+    <!-- 1.配置数据库相关参数properties的属性：${url} -->
+   <context:property-placeholder location="classpath:jdbc.properties"/>
+    <!-- 2.数据库连接池 --> 
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource"> 
+        <!-- 配置连接池属性 --> 
+        <property name="driverClass" value="${jdbc.driver}"/>
+        <property name="jdbcUrl" value="${jdbc.url}"/>
+        <property name="user" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/> 
+        <!-- c3p0连接池的私有属性 --> 
+        <property name="maxPoolSize" value="30"/>
+        <property name="minPoolSize" value="10"/> 
+        <!-- 关闭连接后不自动commit -->
+        <property name="autoCommitOnClose" value="false"/>
+        <!-- 获取连接超时时间 -->
+        <property name="checkoutTimeout" value="10000"/>
+        <!-- 当获取连接失败重试次数 -->
+        <property name="acquireRetryAttempts" value="2"/> 
+    </bean>
+    <!-- 3.配置SqlSessionFactoryBean --> 
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">               <property name="dataSource" ref="dataSource"/> 
+        <!-- 自动扫描mapping.xml文件 --> 
+        <property name="mapperLocations" value="classpath:mapper/*.xml"/>
+        <!--如果mybatis-config.xml没有特殊配置也可以不需要下面的配置-->
+        <property name="configLocation" value="classpath:mybatis-config.xml"/> 
+    </bean>
+    <!-- 4.DAO接口所在包名，Spring会自动查找其下的类 -->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.test.mybatis.dao.mapper"/> 
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+    </bean>
+    <!-- (事务管理)transaction manager -->
+    <bean id="transactionManager" 
+          class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/> 
+    </bean>
+</beans>
+```
+
+## 5.3 创建测试类（UserMapperSpringTest.java）
+
+**该测试类的域对象为User.java，接口为UserMapper.java**
+
+```java
+package com.test.mybatis.dao.spring;
+import com.test.mybatis.dao.mapper.UserMapper;
+import com.test.mybatis.domain.User;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import java.util.Date;
+import java.util.List;
+/**
+ * @author 20190712713 
+ * @date 2019/8/30 11:00 
+ */
+//junit整合spring的测试
+@RunWith(SpringJUnit4ClassRunner.class)
+//加载核心配置文件，自动构建spring容器
+@ContextConfiguration("classpath:applicationContext.xml")
+public class UserMapperSpringTest {
+    @Autowired
+    private UserMapper userMapper;
+    @Test
+    public void testQueryUserByTableName() {
+        List<User> userList = this.userMapper.queryUserByTableName("tb_user"); 
+        for (User user : userList) { 
+            System.out.println(user);
+        }
+    }
+    @Test
+    public void testQueryUserById() { 
+        System.out.println(this.userMapper.queryUserById(2L));
+        User user = new User();
+        user.setName("翠花"); 
+        user.setId("1");
+        userMapper.updateUser(user);
+        System.out.println(this.userMapper.queryUserById(1L));
+    } 
+    @Test
+    public void testQueryUserAll() {
+        List<User> userList = this.userMapper.queryUserAll(); 
+        for (User user : userList) {
+            System.out.println(user);
+        }
+    }
+    @Test
+    public void testInsertUser() {
+        User user = new User();
+        user.setAge(20);
+        user.setBirthday(new Date());
+        user.setName("王二");
+        user.setPassword("123456");
+        user.setSex(2);
+        user.setUserName("we");
+        this.userMapper.insertUser(user);
+        System.out.println(user.getId());
+    }
+    @Test
+    public void testUpdateUser() {
+        User user = new User();
+        user.setBirthday(new Date());
+        user.setName("张三"); 
+        user.setPassword("123456"); 
+        user.setSex(0);
+        user.setUserName("ZS");
+        user.setId("1");
+        this.userMapper.updateUser(user);
+    } 
+    @Test
+    public void testDeleteUserById() {
+        this.userMapper.deleteUserById(1l);
+    }
+}
+```
+
+## 5.4 注意的问题
+
+（1）测试类中没有sqlSession.commit()语句，所以数据库中没有插入数据的记录；
+
+（2）由于在applicaitonContext-dao.xml文件中在3步已经配置了自动扫描映射文件，所以要将mybatis-config.xml文件中删除对应的mapper映射文件；
+
+（3）在applicationContext-dao.xml中，若不配置第4步，可以通过SqSessionTemplate类中的getMapper(UserMapper.class)直接创建接口的实例对象，通过该实例对象调用相应的方法。
+
+
+
+# 6 SpringMVC整合mybatis
 
 # 出现的问题
 
